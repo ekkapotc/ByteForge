@@ -11,6 +11,7 @@ typedef enum {
     OP_SUB,
     OP_MUL,
     OP_DIV,
+    OP_REM,
     OP_END
 } Opcode;
 
@@ -71,6 +72,16 @@ void emit_div(uint8_t **jit_ptr) {
     emit(jit_ptr, code, sizeof(code));
 }
 
+void emit_rem(uint8_t **jit_ptr) {
+    // pop rcx;
+    // pop rax;
+    // cqo;
+    // idiv rcx;
+    // push rdx;
+    uint8_t code[] = {0x59, 0x58, 0x48, 0x99, 0x48, 0xF7, 0xF9, 0x52};
+    emit(jit_ptr, code, sizeof(code));
+}
+
 void emit_ret(uint8_t **jit_ptr) {
     // pop rax; 
     // ret  
@@ -98,6 +109,7 @@ void make_memory_executable(void* ptr, size_t size) {
 }
 
 int precedence(char op) {
+    if (op == '%') return 4;
     if (op == '/') return 3;
     if (op == '*') return 2;
     if (op == '+' || op == '-') return 1;
@@ -150,21 +162,22 @@ int main() {
                     else if (op == '-') program[pc++].op = OP_SUB;
                     else if (op == '*') program[pc++].op = OP_MUL;
                     else if (op == '/') program[pc++].op = OP_DIV;
+                    else if (op == '%') program[pc++].op = OP_REM;
                 }
                 if (op_top >= 0) op_top--; // Discard the '('
                 curr++;
             } 
-            else if (*curr == '+' || *curr == '-' || *curr == '*' || *curr == '/') {
+            else if (*curr == '+' || *curr == '-' || *curr == '*' || *curr == '/' || *curr == '%') {
                 // Handle operator precedence
-                while (op_top >= 0 && op_stack[op_top] != '(' && 
-                       precedence(op_stack[op_top]) >= precedence(*curr)) {
-                    
+                while (op_top >= 0 && op_stack[op_top] != '(' && precedence(op_stack[op_top]) >= precedence(*curr)) {
                     char op = op_stack[op_top--];
                     if (op == '+') program[pc++].op = OP_ADD;
                     else if (op == '-') program[pc++].op = OP_SUB;
                     else if (op == '*') program[pc++].op = OP_MUL;
                     else if (op == '/') program[pc++].op = OP_DIV;
-                }
+                    else if (op == '%') program[pc++].op = OP_REM;
+		}
+
                 op_stack[++op_top] = *curr;
                 curr++;
             } 
@@ -182,6 +195,7 @@ int main() {
             else if (op == '-') program[pc++].op = OP_SUB;
             else if (op == '*') program[pc++].op = OP_MUL;
             else if (op == '/') program[pc++].op = OP_DIV;
+            else if (op == '%') program[pc++].op = OP_REM;
         }
 
         program[pc].op = OP_END; // Terminate VM stream
@@ -200,6 +214,7 @@ int main() {
                 case OP_SUB:  emit_sub(&write_ptr); break;
                 case OP_MUL:  emit_mul(&write_ptr); break;
                 case OP_DIV:  emit_div(&write_ptr); break;
+		case OP_REM:  emit_rem(&write_ptr); break;
                 case OP_END:  emit_ret(&write_ptr); break;
             }
         }
