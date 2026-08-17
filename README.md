@@ -1,0 +1,1 @@
+A dynamic execution engine that parses standard arithmetic expressions into intermediate stack-based bytecode, dynamically translates them into native x86-64 assembly, and evaluates them directly on the host hardware
